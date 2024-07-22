@@ -6,12 +6,13 @@ import com.openmpy.backend.jwt.JwtUtil;
 import com.openmpy.backend.service.CustomUserDetailService;
 import com.openmpy.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -53,11 +54,32 @@ public class UserController {
     @PostMapping("/login")
     public String login(
             @RequestParam String username,
-            @RequestParam String password
+            @RequestParam String password,
+            HttpServletResponse response
     ) throws AuthenticationException {
-        Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
         UserDetails userDetails = customUserDetailService.loadUserByUsername(username);
-        return jwtUtil.generateToken(userDetails.getUsername());
+
+        String token = jwtUtil.generateToken(userDetails.getUsername());
+        Cookie cookie = new Cookie("onion_token", token);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(60 * 60);
+
+        response.addCookie(cookie);
+        return token;
+    }
+
+    @PostMapping("/logout")
+    public void logout(
+            HttpServletResponse response
+    ) {
+        Cookie cookie = new Cookie("onion_token", null);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+
+        response.addCookie(cookie);
     }
 
     @PostMapping("/token/validation")
