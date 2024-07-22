@@ -3,6 +3,7 @@ package com.openmpy.backend.config;
 import com.openmpy.backend.jwt.JwtAuthenticationFilter;
 import com.openmpy.backend.jwt.JwtUtil;
 import com.openmpy.backend.service.CustomUserDetailService;
+import com.openmpy.backend.service.JwtBlacklistService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,8 +23,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration
 public class SecurityConfig {
 
-    private final CustomUserDetailService customUserDetailService;
     private final JwtUtil jwtUtil;
+    private final CustomUserDetailService customUserDetailService;
+    private final JwtBlacklistService jwtBlacklistService;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -37,7 +39,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, customUserDetailService), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, customUserDetailService, jwtBlacklistService), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

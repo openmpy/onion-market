@@ -45,4 +45,13 @@ public class JwtUtil {
 
         return claims.getSubject();
     }
+
+    public Date getExpirationDateFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(secretKey)
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.getExpiration();
+    }
 }

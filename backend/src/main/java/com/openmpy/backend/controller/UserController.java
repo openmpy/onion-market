@@ -4,9 +4,11 @@ import com.openmpy.backend.dto.SignupUser;
 import com.openmpy.backend.entity.User;
 import com.openmpy.backend.jwt.JwtUtil;
 import com.openmpy.backend.service.CustomUserDetailService;
+import com.openmpy.backend.service.JwtBlacklistService;
 import com.openmpy.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.naming.AuthenticationException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -29,6 +35,7 @@ public class UserController {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final CustomUserDetailService customUserDetailService;
+    private final JwtBlacklistService jwtBlacklistService;
 
     @PostMapping("/signup")
     public ResponseEntity<User> createUser(
@@ -74,6 +81,37 @@ public class UserController {
     public void logout(
             HttpServletResponse response
     ) {
+        Cookie cookie = new Cookie("onion_token", null);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+
+        response.addCookie(cookie);
+    }
+
+    @PostMapping("/logout/all")
+    public void logoutAll(
+            @RequestParam(required = false) String requestToken,
+            @CookieValue(value = "onion_token", required = false) String cookieToken,
+            HttpServletResponse response,
+            HttpServletRequest request
+    ) {
+        String token = null;
+        String bearerToken = request.getHeader("Authorization");
+
+        if (requestToken != null) {
+            token = requestToken;
+        } else if (cookieToken != null) {
+            token = cookieToken;
+        } else if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            token = bearerToken.substring(7);
+        }
+
+        Instant instant = new Date().toInstant();
+        LocalDateTime expirationTime = instant.atZone(ZoneId.systemDefault()).toLocalDateTime();
+        String username = jwtUtil.getUsernameFromToken(token);
+        jwtBlacklistService.blacklistToken(token, expirationTime, username);
+
         Cookie cookie = new Cookie("onion_token", null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
