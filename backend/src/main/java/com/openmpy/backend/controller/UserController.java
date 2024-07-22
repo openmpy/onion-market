@@ -1,12 +1,22 @@
 package com.openmpy.backend.controller;
 
+import com.openmpy.backend.dto.SignupUser;
 import com.openmpy.backend.entity.User;
+import com.openmpy.backend.jwt.JwtUtil;
+import com.openmpy.backend.service.CustomUserDetailService;
 import com.openmpy.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Parameter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import javax.naming.AuthenticationException;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -15,14 +25,15 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
+    private final CustomUserDetailService customUserDetailService;
 
     @PostMapping("/signup")
     public ResponseEntity<User> createUser(
-            @RequestParam String username,
-            @RequestParam String password,
-            @RequestParam String email
+            @RequestBody SignupUser signupUser
     ) {
-        User user = userService.createUser(username, password, email);
+        User user = userService.createUser(signupUser);
         return ResponseEntity.ok(user);
     }
 
@@ -37,5 +48,25 @@ public class UserController {
     ) {
         userService.deleteUser(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/login")
+    public String login(
+            @RequestParam String username,
+            @RequestParam String password
+    ) throws AuthenticationException {
+        Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
+        UserDetails userDetails = customUserDetailService.loadUserByUsername(username);
+        return jwtUtil.generateToken(userDetails.getUsername());
+    }
+
+    @PostMapping("/token/validation")
+    @ResponseStatus(HttpStatus.OK)
+    public void jwtValidate(
+            @RequestParam String token
+    ) {
+        if (!jwtUtil.validateToken(token)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Token is not validation");
+        }
     }
 }
